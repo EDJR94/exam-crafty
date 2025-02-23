@@ -1,10 +1,12 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, CheckCircle, Trophy } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
 
   const examPackages = [
@@ -30,6 +32,10 @@ const Index = () => {
       features: ["600+ questions", "Case studies", "Study guides", "Weekly updates"],
     },
   ];
+
+  const handleGetStarted = (packageId: string) => {
+    navigate(`/package/${packageId}`);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -95,7 +101,13 @@ const Index = () => {
                       </li>
                     ))}
                   </ul>
-                  <Button className="w-full mt-6 bg-primary hover:bg-primary/90">
+                  <Button 
+                    className="w-full mt-6 bg-primary hover:bg-primary/90"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGetStarted(pkg.id);
+                    }}
+                  >
                     Get Started
                   </Button>
                 </CardContent>
