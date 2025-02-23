@@ -10,6 +10,7 @@ type Question = {
   text: string;
   options: { id: string; text: string }[];
   correctAnswer: string;
+  rationale: string;
 };
 
 const Practice = () => {
@@ -19,6 +20,7 @@ const Practice = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [showRationale, setShowRationale] = useState(false);
 
   // Mock questions - replace with actual data from your backend
   const questions: Question[] = [
@@ -30,6 +32,21 @@ const Practice = () => {
         { id: "E", text: "Errado" },
       ],
       correctAnswer: "C",
+      rationale: `
+        <p class="bold">Questão 1</p>
+        <p>Com relação ao Imposto sobre a Propriedade de Veículos Automotores – IPVA, julgue o item subsequente.</p>
+        <p>O adquirente do veículo automotor é solidariamente responsável pelo pagamento do imposto dos exercícios anteriores, cabendo, contudo, o benefício de ordem.</p>
+        <p class="red-bold">GABARITO: ERRADO.</p>
+        <p class="bold">JUSTIFICATIVA:</p>
+        <p>O adquirente do veículo automotor é solidariamente responsável pelo pagamento do imposto dos exercícios anteriores, <span class="red-strike">cabendo, contudo, o benefício de ordem</span>.</p>
+        <p>De acordo com a Lei Estadual nº 6.348/1991 - IPVA (BA), que dispõe sobre o IPVA:</p>
+        <blockquote>
+            <p>Art. 9º - São responsáveis, solidariamente, pelo pagamento do Imposto:</p>
+            <p>I - o adquirente, em relação ao veículo adquirido sem o pagamento do imposto do exercício ou exercícios anteriores;</p>
+            <p>(...)</p>
+            <p>Parágrafo único. A solidariedade prevista neste artigo <span class="blue-bold">não comporta benefício de ordem</span>.</p>
+        </blockquote>
+      `,
     },
     // Add more questions here
   ];
@@ -38,7 +55,11 @@ const Practice = () => {
 
   const handleAnswerSelect = (optionId: string) => {
     setSelectedAnswer(optionId);
+  };
+
+  const handleSolve = () => {
     setShowAnswer(true);
+    setShowRationale(true);
   };
 
   const handleNext = () => {
@@ -46,6 +67,7 @@ const Practice = () => {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedAnswer(null);
       setShowAnswer(false);
+      setShowRationale(false);
     }
   };
 
@@ -54,6 +76,7 @@ const Practice = () => {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
       setSelectedAnswer(null);
       setShowAnswer(false);
+      setShowRationale(false);
     }
   };
 
@@ -113,6 +136,32 @@ const Practice = () => {
                 </button>
               ))}
             </div>
+
+            {!showAnswer && selectedAnswer && (
+              <div className="mt-6 flex justify-center">
+                <Button onClick={handleSolve} className="w-full max-w-xs">
+                  Resolver
+                </Button>
+              </div>
+            )}
+
+            {showRationale && (
+              <div className="mt-8 p-6 bg-white rounded-lg border">
+                <style dangerouslySetInnerHTML={{
+                  __html: `
+                    .bold { font-weight: bold; }
+                    .red-strike { color: #FF6666; text-decoration: line-through; text-decoration-color: #000; }
+                    .blue-bold { color: #0000FF; font-weight: bold; }
+                    .red-bold { color: #FF6666; font-weight: bold; }
+                    blockquote { color: #000; margin: 10px 0; font-style: italic; padding-left: 1rem; border-left: 4px solid #e5e7eb; }
+                  `
+                }} />
+                <div 
+                  className="prose max-w-none"
+                  dangerouslySetInnerHTML={{ __html: currentQuestion.rationale }}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
