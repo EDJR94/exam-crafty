@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, CheckCircle, Trophy } from "lucide-react";
+import { BookOpen, CheckCircle, Trophy, LogIn } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -40,6 +39,16 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <div className="container px-4 py-16 mx-auto">
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/auth")}
+            className="gap-2"
+          >
+            <LogIn className="w-4 h-4" />
+            Sign In
+          </Button>
+        </div>
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="text-4xl font-bold tracking-tight mb-4">
             Master Your Exam Preparation
