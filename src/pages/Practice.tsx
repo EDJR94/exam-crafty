@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -61,6 +60,8 @@ const Practice = () => {
     setShowAnswer(true);
     setShowRationale(true);
   };
+
+  const isCorrectAnswer = selectedAnswer === currentQuestion.correctAnswer;
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
@@ -142,6 +143,16 @@ const Practice = () => {
                 <Button onClick={handleSolve} className="w-full max-w-xs">
                   Resolver
                 </Button>
+              </div>
+            )}
+
+            {showAnswer && (
+              <div className={`mt-6 text-center font-medium ${
+                isCorrectAnswer ? "text-green-600" : "text-red-600"
+              }`}>
+                {isCorrectAnswer
+                  ? "Resposta correta! Ver resolução"
+                  : "Resposta errada. Ver resolução"}
               </div>
             )}
 
