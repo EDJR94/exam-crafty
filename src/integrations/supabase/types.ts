@@ -9,7 +9,106 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      exam_packages: {
+        Row: {
+          created_at: string
+          description: string
+          features: string[]
+          id: string
+          price: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          features?: string[]
+          id?: string
+          price: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          features?: string[]
+          id?: string
+          price?: number
+          title?: string
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          correct_answer: string
+          created_at: string
+          id: string
+          options: Json
+          rationale: string
+          text: string
+          topic_id: string
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string
+          id?: string
+          options: Json
+          rationale: string
+          text: string
+          topic_id: string
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string
+          id?: string
+          options?: Json
+          rationale?: string
+          text?: string
+          topic_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      topics: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          package_id: string
+          question_count: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          package_id: string
+          question_count?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          package_id?: string
+          question_count?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "exam_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

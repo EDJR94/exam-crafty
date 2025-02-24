@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -5,6 +6,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BookOpen, CheckCircle, Trophy, LogIn, LogOut, UserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useQuery } from "@tanstack/react-query";
+
+type ExamPackage = {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  features: string[];
+};
+
+const fetchExamPackages = async () => {
+  const { data, error } = await supabase
+    .from('exam_packages')
+    .select('*');
+  
+  if (error) throw error;
+  return data as ExamPackage[];
+};
 
 const Index = () => {
   const navigate = useNavigate();
@@ -12,13 +31,16 @@ const Index = () => {
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
+  const { data: examPackages, isLoading, error } = useQuery({
+    queryKey: ['examPackages'],
+    queryFn: fetchExamPackages,
+  });
+
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUserEmail(session?.user?.email ?? null);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUserEmail(session?.user?.email ?? null);
     });
@@ -38,30 +60,6 @@ const Index = () => {
       });
     }
   };
-
-  const examPackages = [
-    {
-      id: "1",
-      title: "Civil Law Package",
-      description: "Complete preparation for Civil Law exams",
-      price: "R$ 199,90",
-      features: ["500+ questions", "Video explanations", "Practice tests", "Progress tracking"],
-    },
-    {
-      id: "2",
-      title: "Criminal Law Package",
-      description: "Comprehensive Criminal Law study material",
-      price: "R$ 199,90",
-      features: ["400+ questions", "Expert feedback", "Mock exams", "Performance analytics"],
-    },
-    {
-      id: "3",
-      title: "Tax Law Package",
-      description: "Master Tax Law concepts and applications",
-      price: "R$ 199,90",
-      features: ["600+ questions", "Case studies", "Study guides", "Weekly updates"],
-    },
-  ];
 
   const handleGetStarted = (packageId: string) => {
     navigate(`/package/${packageId}`);
@@ -97,6 +95,7 @@ const Index = () => {
             </Button>
           )}
         </div>
+
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="text-4xl font-bold tracking-tight mb-4">
             Master Your Exam Preparation
@@ -134,43 +133,49 @@ const Index = () => {
 
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-8">Choose Your Study Package</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {examPackages.map((pkg, index) => (
-              <Card 
-                key={pkg.id}
-                className={`transform transition-all duration-300 hover:scale-105 backdrop-blur-sm bg-white/90 border-0 shadow-lg animate-fade-in cursor-pointer ${
-                  selectedExam === pkg.id ? 'ring-2 ring-primary' : ''
-                }`}
-                onClick={() => setSelectedExam(pkg.id)}
-                style={{ animationDelay: `${index * 200}ms` }}
-              >
-                <CardHeader>
-                  <CardTitle>{pkg.title}</CardTitle>
-                  <CardDescription>{pkg.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold text-primary mb-4">{pkg.price}</p>
-                  <ul className="space-y-2">
-                    {pkg.features.map((feature, index) => (
-                      <li key={index} className="flex items-center text-sm text-slate-600">
-                        <CheckCircle className="w-4 h-4 text-primary mr-2" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button 
-                    className="w-full mt-6 bg-primary hover:bg-primary/90"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleGetStarted(pkg.id);
-                    }}
-                  >
-                    Get Started
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="text-center">Loading packages...</div>
+          ) : error ? (
+            <div className="text-center text-red-600">Error loading packages. Please try again later.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {examPackages?.map((pkg, index) => (
+                <Card 
+                  key={pkg.id}
+                  className={`transform transition-all duration-300 hover:scale-105 backdrop-blur-sm bg-white/90 border-0 shadow-lg animate-fade-in cursor-pointer ${
+                    selectedExam === pkg.id ? 'ring-2 ring-primary' : ''
+                  }`}
+                  onClick={() => setSelectedExam(pkg.id)}
+                  style={{ animationDelay: `${index * 200}ms` }}
+                >
+                  <CardHeader>
+                    <CardTitle>{pkg.title}</CardTitle>
+                    <CardDescription>{pkg.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-bold text-primary mb-4">R$ {pkg.price.toFixed(2)}</p>
+                    <ul className="space-y-2">
+                      {pkg.features.map((feature, index) => (
+                        <li key={index} className="flex items-center text-sm text-slate-600">
+                          <CheckCircle className="w-4 h-4 text-primary mr-2" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button 
+                      className="w-full mt-6 bg-primary hover:bg-primary/90"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGetStarted(pkg.id);
+                      }}
+                    >
+                      Get Started
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
