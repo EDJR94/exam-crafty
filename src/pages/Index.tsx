@@ -1,12 +1,43 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, CheckCircle, Trophy, LogIn } from "lucide-react";
+import { BookOpen, CheckCircle, Trophy, LogIn, LogOut, UserRound } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/auth");
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+      });
+    }
+  };
 
   const examPackages = [
     {
@@ -39,15 +70,32 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <div className="container px-4 py-16 mx-auto">
-        <div className="flex justify-end mb-4">
-          <Button
-            variant="outline"
-            onClick={() => navigate("/auth")}
-            className="gap-2"
-          >
-            <LogIn className="w-4 h-4" />
-            Sign In
-          </Button>
+        <div className="flex justify-end mb-4 items-center gap-2">
+          {userEmail ? (
+            <>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <UserRound className="w-4 h-4" />
+                {userEmail}
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => navigate("/auth")}
+              className="gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              Sign In
+            </Button>
+          )}
         </div>
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="text-4xl font-bold tracking-tight mb-4">
