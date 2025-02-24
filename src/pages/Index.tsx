@@ -98,10 +98,10 @@ const Index = () => {
 
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="text-4xl font-bold tracking-tight mb-4">
-            Master Your Exam Preparation
+            Domine Sua Prova
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Practice with thousands of real exam questions, track your progress, and achieve excellence in your legal career.
+            Prepare-se para a sua prova de forma inteligente com nossas questões inéditas.
           </p>
         </div>
 
@@ -109,34 +109,34 @@ const Index = () => {
           <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-lg animate-fade-in">
             <CardHeader>
               <BookOpen className="w-12 h-12 text-primary mb-4" />
-              <CardTitle>Extensive Question Bank</CardTitle>
-              <CardDescription>Access thousands of real exam questions with detailed explanations</CardDescription>
+              <CardTitle>Banco de Questões</CardTitle>
+              <CardDescription>Acesse milhares de questões com comentários detalhados</CardDescription>
             </CardHeader>
           </Card>
 
           <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-lg animate-fade-in [animation-delay:200ms]">
             <CardHeader>
               <CheckCircle className="w-12 h-12 text-primary mb-4" />
-              <CardTitle>Smart Practice</CardTitle>
-              <CardDescription>Create custom notebooks and track your learning progress</CardDescription>
+              <CardTitle>Aprendizado Inteligente</CardTitle>
+              <CardDescription>Crie simulados personalizados de sua preferência</CardDescription>
             </CardHeader>
           </Card>
 
           <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-lg animate-fade-in [animation-delay:400ms]">
             <CardHeader>
               <Trophy className="w-12 h-12 text-primary mb-4" />
-              <CardTitle>Performance Analytics</CardTitle>
-              <CardDescription>Detailed insights into your strengths and areas for improvement</CardDescription>
+              <CardTitle>Análise de Performance</CardTitle>
+              <CardDescription>Recebe um relatório personalizado e saiba onde melhorar</CardDescription>
             </CardHeader>
           </Card>
         </div>
 
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-8">Choose Your Study Package</h2>
+          <h2 className="text-3xl font-bold mb-8">Escolha Seu Pacote de Estudo</h2>
           {isLoading ? (
-            <div className="text-center">Loading packages...</div>
+            <div className="text-center">Carregando Pacotes...</div>
           ) : error ? (
-            <div className="text-center text-red-600">Error loading packages. Please try again later.</div>
+            <div className="text-center text-red-600">Erro ao carregar pacotes, Tente novamente.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {examPackages?.map((pkg, index) => (
@@ -169,7 +169,7 @@ const Index = () => {
                         handleGetStarted(pkg.id);
                       }}
                     >
-                      Get Started
+                      Quero começar
                     </Button>
                   </CardContent>
                 </Card>
