@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,12 +6,27 @@ import { ArrowLeft, ArrowRight, RotateCcw, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
+type QuestionOption = {
+  id: string;
+  text: string;
+};
+
 type Question = {
   id: string;
   text: string;
-  options: { id: string; text: string }[];
+  options: QuestionOption[];
   correct_answer: string;
   rationale: string;
+};
+
+type RawQuestion = {
+  id: string;
+  text: string;
+  options: Json;
+  correct_answer: string;
+  rationale: string;
+  topic_id: string;
+  created_at: string;
 };
 
 const fetchQuestions = async (topicId: string) => {
@@ -22,7 +36,12 @@ const fetchQuestions = async (topicId: string) => {
     .eq('topic_id', topicId);
   
   if (error) throw error;
-  return data as Question[];
+  
+  // Transform the raw questions to match our Question type
+  return (data as RawQuestion[]).map(q => ({
+    ...q,
+    options: q.options as QuestionOption[],
+  })) as Question[];
 };
 
 const Practice = () => {
