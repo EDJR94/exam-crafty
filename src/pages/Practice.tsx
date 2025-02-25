@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +27,7 @@ type Question = {
 type RawQuestion = {
   id: string;
   text: string;
-  options: any; // Changed from Json to any to fix TypeScript error
+  options: any;
   correct_answer: string;
   rationale: string;
   topic_id: string;
@@ -42,7 +42,6 @@ const fetchQuestions = async (topicId: string) => {
   
   if (error) throw error;
   
-  // Transform the raw questions to match our Question type
   return (data as RawQuestion[]).map(q => ({
     ...q,
     options: q.options as QuestionOption[],
@@ -56,13 +55,73 @@ const Practice = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [showRationale, setShowRationale] = useState(false);
+  const [showRationaleCollapsible, setShowRationaleCollapsible] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [startTime, setStartTime] = useState<Date>(new Date());
 
   const { data: questions, isLoading, error } = useQuery({
     queryKey: ['questions', topicId],
     queryFn: () => fetchQuestions(topicId!),
     enabled: !!topicId,
   });
+
+  useEffect(() => {
+    const createSession = async () => {
+      if (!topicId || sessionId) return;
+
+      const { data: session, error } = await supabase
+        .from('practice_sessions')
+        .insert({
+          topic_id: topicId,
+          total_questions: questions?.length || 0,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating session:', error);
+        return;
+      }
+
+      setSessionId(session.id);
+    };
+
+    if (questions) {
+      createSession();
+    }
+  }, [topicId, questions, sessionId]);
+
+  const recordAttempt = async (questionId: string, selectedAnswer: string, isCorrect: boolean) => {
+    if (!sessionId) return;
+
+    const timeSpent = Math.round((new Date().getTime() - startTime.getTime()) / 1000);
+
+    const { error } = await supabase
+      .from('question_attempts')
+      .insert({
+        session_id: sessionId,
+        question_id: questionId,
+        selected_answer: selectedAnswer,
+        is_correct: isCorrect,
+        time_spent: timeSpent,
+      });
+
+    if (error) {
+      console.error('Error recording attempt:', error);
+    }
+
+    // Update session progress
+    const { error: sessionError } = await supabase
+      .from('practice_sessions')
+      .update({
+        correct_answers: supabase.sql`correct_answers + ${isCorrect ? 1 : 0}`,
+      })
+      .eq('id', sessionId);
+
+    if (sessionError) {
+      console.error('Error updating session:', sessionError);
+    }
+  };
 
   if (isLoading) {
     return <div className="text-center py-8">Loading questions...</div>;
@@ -78,9 +137,14 @@ const Practice = () => {
     setSelectedAnswer(optionId);
   };
 
-  const handleSolve = () => {
+  const handleSolve = async () => {
+    if (!selectedAnswer) return;
+
+    const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+    await recordAttempt(currentQuestion.id, selectedAnswer, isCorrect);
+    
     setShowAnswer(true);
-    setShowRationale(true);
+    setStartTime(new Date()); // Reset timer for next question
   };
 
   const isCorrectAnswer = selectedAnswer === currentQuestion.correct_answer;
@@ -90,7 +154,16 @@ const Practice = () => {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedAnswer(null);
       setShowAnswer(false);
-      setShowRationale(false);
+      setShowRationaleCollapsible(false);
+      setStartTime(new Date());
+    } else {
+      // Update session completion
+      if (sessionId) {
+        supabase
+          .from('practice_sessions')
+          .update({ completed_at: new Date().toISOString() })
+          .eq('id', sessionId);
+      }
     }
   };
 
@@ -99,11 +172,10 @@ const Practice = () => {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
       setSelectedAnswer(null);
       setShowAnswer(false);
-      setShowRationale(false);
+      setShowRationaleCollapsible(false);
+      setStartTime(new Date());
     }
   };
-
-  const [showRationaleCollapsible, setShowRationaleCollapsible] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-8">
