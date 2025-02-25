@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, RotateCcw, Star, ChevronDown, ChevronUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, ArrowRight, RotateCcw, Star, ChevronDown, ChevronUp, Trophy, Clock, CheckCircle, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -11,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
 
 type QuestionOption = {
   id: string;
@@ -35,6 +35,24 @@ type RawQuestion = {
   created_at: string;
 };
 
+type QuestionAttempt = {
+  questionId: string;
+  selectedAnswer: string;
+  isCorrect: boolean;
+  timeSpent: number;
+};
+
+type TopicInfo = {
+  id: string;
+  title: string;
+  package_id: string;
+};
+
+type PackageInfo = {
+  id: string;
+  title: string;
+};
+
 const fetchQuestions = async (topicId: string) => {
   const { data, error } = await supabase
     .from('questions')
@@ -49,6 +67,30 @@ const fetchQuestions = async (topicId: string) => {
   })) as Question[];
 };
 
+const fetchTopicInfo = async (topicId: string) => {
+  const { data, error } = await supabase
+    .from('topics')
+    .select('id, title, package_id')
+    .eq('id', topicId)
+    .single();
+  
+  if (error) throw error;
+  
+  return data as TopicInfo;
+};
+
+const fetchPackageInfo = async (packageId: string) => {
+  const { data, error } = await supabase
+    .from('exam_packages')
+    .select('id, title')
+    .eq('id', packageId)
+    .single();
+  
+  if (error) throw error;
+  
+  return data as PackageInfo;
+};
+
 const Practice = () => {
   const navigate = useNavigate();
   const { topicId } = useParams();
@@ -59,22 +101,63 @@ const Practice = () => {
   const [showRationaleCollapsible, setShowRationaleCollapsible] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date>(new Date());
+  const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [packageId, setPackageId] = useState<string | null>(null);
+  const [topicTitle, setTopicTitle] = useState<string | null>(null);
+  const [packageTitle, setPackageTitle] = useState<string | null>(null);
 
-  const { data: questions, isLoading, error } = useQuery({
+  const { data: questions, isLoading: questionsLoading, error: questionsError } = useQuery({
     queryKey: ['questions', topicId],
     queryFn: () => fetchQuestions(topicId!),
     enabled: !!topicId,
   });
 
+  const { data: topicInfo, isLoading: topicLoading, error: topicError } = useQuery({
+    queryKey: ['topic', topicId],
+    queryFn: () => fetchTopicInfo(topicId!),
+    enabled: !!topicId,
+  });
+
+  useEffect(() => {
+    if (topicInfo && topicInfo.package_id) {
+      setPackageId(topicInfo.package_id);
+      setTopicTitle(topicInfo.title);
+      
+      // Fetch package info
+      const getPackageInfo = async () => {
+        try {
+          const packageData = await fetchPackageInfo(topicInfo.package_id);
+          setPackageTitle(packageData.title);
+        } catch (error) {
+          console.error('Error fetching package info:', error);
+        }
+      };
+      
+      getPackageInfo();
+    }
+  }, [topicInfo]);
+
   useEffect(() => {
     const createSession = async () => {
       if (!topicId || sessionId) return;
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting current user:', userError);
+        return;
+      }
 
       const { data: session, error } = await supabase
         .from('practice_sessions')
         .insert({
           topic_id: topicId,
           total_questions: questions?.length || 0,
+          user_id: user?.id, // Associate session with current user
         })
         .select()
         .single();
@@ -89,6 +172,7 @@ const Practice = () => {
 
     if (questions) {
       createSession();
+      setSessionStartTime(new Date());
     }
   }, [topicId, questions, sessionId]);
 
@@ -96,6 +180,19 @@ const Practice = () => {
     if (!sessionId) return;
 
     const timeSpent = Math.round((new Date().getTime() - startTime.getTime()) / 1000);
+
+    // Save attempt in local state for summary
+    setAttempts(prev => [...prev, {
+      questionId,
+      selectedAnswer,
+      isCorrect,
+      timeSpent
+    }]);
+
+    // Update correct answers count
+    if (isCorrect) {
+      setCorrectAnswers(prev => prev + 1);
+    }
 
     const { error } = await supabase
       .from('question_attempts')
@@ -133,12 +230,163 @@ const Practice = () => {
     }
   };
 
-  if (isLoading) {
+  // Calculate session metrics for the summary
+  const calculateSessionMetrics = () => {
+    if (!questions || !attempts.length) return null;
+    
+    const totalQuestions = attempts.length;
+    const correctCount = attempts.filter(a => a.isCorrect).length;
+    const totalTimeSpent = attempts.reduce((total, a) => total + a.timeSpent, 0);
+    const averageTimePerQuestion = totalTimeSpent / totalQuestions;
+    
+    // Calculate overall session time
+    const sessionTime = Math.round((new Date().getTime() - sessionStartTime.getTime()) / 1000);
+    
+    return {
+      totalQuestions,
+      correctCount,
+      accuracy: (correctCount / totalQuestions) * 100,
+      totalTimeSpent,
+      averageTimePerQuestion,
+      sessionTime
+    };
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
+
+  const handleSessionCompletion = async () => {
+    if (sessionId) {
+      // Update session completion in database
+      await supabase
+        .from('practice_sessions')
+        .update({ 
+          completed_at: new Date().toISOString(),
+          correct_answers: correctAnswers
+        })
+        .eq('id', sessionId);
+      
+      // Show summary
+      setShowSummary(true);
+    }
+  };
+
+  // Handle navigation back to topics
+  const handleBackToTopics = () => {
+    if (packageId) {
+      navigate(`/package/${packageId}`);
+    } else {
+      // Fallback to a safer route if packageId isn't available
+      navigate('/topics');
+    }
+  };
+
+  if (questionsLoading || topicLoading) {
     return <div className="text-center py-8">Loading questions...</div>;
   }
 
-  if (error || !questions) {
+  if (questionsError || topicError || !questions) {
     return <div className="text-center py-8 text-red-600">Error loading questions. Please try again later.</div>;
+  }
+
+  // Performance Summary component
+  if (showSummary) {
+    const metrics = calculateSessionMetrics();
+    if (!metrics) return <div>No data available</div>;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-8">
+        <div className="container mx-auto px-4">
+          <div className="mb-6 flex items-center justify-between">
+            <button
+              onClick={handleBackToTopics}
+              className="flex items-center text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Topics
+            </button>
+          </div>
+
+          <Card className="mb-8">
+            <CardHeader className="text-center">
+              <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+              <CardTitle className="text-2xl">Session Complete!</CardTitle>
+              {packageTitle && topicTitle && (
+                <p className="text-slate-600">{packageTitle} - {topicTitle}</p>
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="text-center mb-6">
+                  <p className="text-4xl font-bold text-primary">
+                    {metrics.correctCount}/{metrics.totalQuestions}
+                  </p>
+                  <p className="text-slate-600">
+                    Score: {metrics.accuracy.toFixed(1)}%
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-slate-600 mb-2">Accuracy</p>
+                    <Progress value={metrics.accuracy} className="h-2" />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-lg flex items-center">
+                      <Clock className="w-5 h-5 text-slate-600 mr-3" />
+                      <div>
+                        <p className="text-sm text-slate-600">Total Time</p>
+                        <p className="font-medium">{formatTime(metrics.sessionTime)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 bg-slate-50 rounded-lg flex items-center">
+                      <Clock className="w-5 h-5 text-slate-600 mr-3" />
+                      <div>
+                        <p className="text-sm text-slate-600">Avg. Time per Question</p>
+                        <p className="font-medium">{formatTime(Math.round(metrics.averageTimePerQuestion))}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4">
+                    <h3 className="font-medium mb-3">Question Analysis</h3>
+                    <div className="space-y-2">
+                      {attempts.map((attempt, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                          <div className="flex items-center">
+                            {attempt.isCorrect ? (
+                              <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-500 mr-3" />
+                            )}
+                            <span>Question {index + 1}</span>
+                          </div>
+                          <span className="text-slate-600">{formatTime(attempt.timeSpent)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-center pt-4">
+                  <Button
+                    onClick={handleBackToTopics}
+                    className="px-8"
+                  >
+                    Back to Topics
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   const currentQuestion = questions[currentQuestionIndex];
@@ -167,13 +415,8 @@ const Practice = () => {
       setShowRationaleCollapsible(false);
       setStartTime(new Date());
     } else {
-      // Update session completion
-      if (sessionId) {
-        supabase
-          .from('practice_sessions')
-          .update({ completed_at: new Date().toISOString() })
-          .eq('id', sessionId);
-      }
+      // Complete the session and show summary
+      handleSessionCompletion();
     }
   };
 
@@ -187,12 +430,28 @@ const Practice = () => {
     }
   };
 
+  // Calculate current progress percentage
+  const progressPercentage = (currentQuestionIndex / questions.length) * 100;
+  
+  // Calculate current score if any answers have been attempted
+  const currentScore = attempts.length > 0
+    ? (attempts.filter(a => a.isCorrect).length / attempts.length) * 100
+    : 0;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-8">
       <div className="container mx-auto px-4">
-        <div className="mb-6 flex items-center justify-between">
+        {/* Package and Topic Title Header */}
+        {packageTitle && topicTitle && (
+          <div className="mb-4 text-center">
+            <h1 className="font-bold text-xl text-slate-800">{packageTitle}</h1>
+            <p className="text-slate-600">{topicTitle}</p>
+          </div>
+        )}
+        
+        <div className="mb-3 flex items-center justify-between">
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleBackToTopics}
             className="flex items-center text-slate-600 hover:text-slate-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -206,6 +465,20 @@ const Practice = () => {
               <Star className="w-4 h-4" />
             </Button>
           </div>
+        </div>
+
+        {/* Progress indicator */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-slate-600">Progresso</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{correctAnswers}/{attempts.length}</span>
+              <span className="text-xs text-slate-500">
+                {attempts.length > 0 ? `(${currentScore.toFixed(0)}%)` : ''}
+              </span>
+            </div>
+          </div>
+          <Progress value={progressPercentage} className="h-2" />
         </div>
 
         <Card className="mb-8">
@@ -316,9 +589,9 @@ const Practice = () => {
 
           <Button
             onClick={handleNext}
-            disabled={currentQuestionIndex === questions.length - 1}
+            disabled={currentQuestionIndex === questions.length - 1 && !showAnswer}
           >
-            Próxima
+            {currentQuestionIndex === questions.length - 1 ? "Finalizar" : "Próxima"}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
