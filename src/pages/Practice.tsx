@@ -2,9 +2,14 @@ import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, RotateCcw, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCcw, Star, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type QuestionOption = {
   id: string;
@@ -22,7 +27,7 @@ type Question = {
 type RawQuestion = {
   id: string;
   text: string;
-  options: Json;
+  options: any; // Changed from Json to any to fix TypeScript error
   correct_answer: string;
   rationale: string;
   topic_id: string;
@@ -98,6 +103,8 @@ const Practice = () => {
     }
   };
 
+  const [showRationaleCollapsible, setShowRationaleCollapsible] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-8">
       <div className="container mx-auto px-4">
@@ -168,28 +175,44 @@ const Practice = () => {
                 isCorrectAnswer ? "text-green-600" : "text-red-600"
               }`}>
                 {isCorrectAnswer
-                  ? "Resposta correta! Ver resolução"
-                  : "Resposta errada. Ver resolução"}
+                  ? "Resposta correta!"
+                  : "Resposta errada."}
               </div>
             )}
 
-            {showRationale && (
-              <div className="mt-8 p-6 bg-white rounded-lg border">
-                <style dangerouslySetInnerHTML={{
-                  __html: `
-                    .bold { font-weight: bold; }
-                    .red-strike { color: #FF6666; text-decoration: line-through; text-decoration-color: #000; }
-                    .blue-bold { color: #0000FF; font-weight: bold; }
-                    .red-bold { color: #FF6666; font-weight: bold; }
-                    blockquote { color: #000; margin: 10px 0; font-style: italic; padding-left: 1rem; border-left: 4px solid #e5e7eb; }
-                  `
-                }} />
-                <div 
-                  className="prose max-w-none"
-                  dangerouslySetInnerHTML={{ __html: currentQuestion.rationale }}
-                />
-              </div>
-            )}
+            <Collapsible
+              open={showRationaleCollapsible}
+              onOpenChange={setShowRationaleCollapsible}
+              className="mt-6"
+            >
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="w-full">
+                  Ver Resolução
+                  {showRationaleCollapsible ? (
+                    <ChevronUp className="w-4 h-4 ml-2" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <div className="p-6 bg-white rounded-lg border">
+                  <style dangerouslySetInnerHTML={{
+                    __html: `
+                      .bold { font-weight: bold; }
+                      .red-strike { color: #FF6666; text-decoration: line-through; text-decoration-color: #000; }
+                      .blue-bold { color: #0000FF; font-weight: bold; }
+                      .red-bold { color: #FF6666; font-weight: bold; }
+                      blockquote { color: #000; margin: 10px 0; font-style: italic; padding-left: 1rem; border-left: 4px solid #e5e7eb; }
+                    `
+                  }} />
+                  <div 
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: currentQuestion.rationale }}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
 
