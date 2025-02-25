@@ -1,15 +1,28 @@
+
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, ArrowRight, RotateCcw, Star } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 type Question = {
   id: string;
   text: string;
   options: { id: string; text: string }[];
-  correctAnswer: string;
+  correct_answer: string;
   rationale: string;
+};
+
+const fetchQuestions = async (topicId: string) => {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('topic_id', topicId);
+  
+  if (error) throw error;
+  return data as Question[];
 };
 
 const Practice = () => {
@@ -21,34 +34,19 @@ const Practice = () => {
   const [showAnswer, setShowAnswer] = useState(false);
   const [showRationale, setShowRationale] = useState(false);
 
-  // Mock questions - replace with actual data from your backend
-  const questions: Question[] = [
-    {
-      id: "1",
-      text: "No que se refere ao conceito de administração pública, às fontes do direito administrativo e aos atos administrativos, julgue os itens seguintes.\n\nDe acordo com o critério orgânico, administração pública designa o conjunto de agentes, órgãos e pessoas jurídicas responsáveis por funções administrativas.",
-      options: [
-        { id: "C", text: "Certo" },
-        { id: "E", text: "Errado" },
-      ],
-      correctAnswer: "C",
-      rationale: `
-        <p class="bold">Questão 1</p>
-        <p>Com relação ao Imposto sobre a Propriedade de Veículos Automotores – IPVA, julgue o item subsequente.</p>
-        <p>O adquirente do veículo automotor é solidariamente responsável pelo pagamento do imposto dos exercícios anteriores, cabendo, contudo, o benefício de ordem.</p>
-        <p class="red-bold">GABARITO: ERRADO.</p>
-        <p class="bold">JUSTIFICATIVA:</p>
-        <p>O adquirente do veículo automotor é solidariamente responsável pelo pagamento do imposto dos exercícios anteriores, <span class="red-strike">cabendo, contudo, o benefício de ordem</span>.</p>
-        <p>De acordo com a Lei Estadual nº 6.348/1991 - IPVA (BA), que dispõe sobre o IPVA:</p>
-        <blockquote>
-            <p>Art. 9º - São responsáveis, solidariamente, pelo pagamento do Imposto:</p>
-            <p>I - o adquirente, em relação ao veículo adquirido sem o pagamento do imposto do exercício ou exercícios anteriores;</p>
-            <p>(...)</p>
-            <p>Parágrafo único. A solidariedade prevista neste artigo <span class="blue-bold">não comporta benefício de ordem</span>.</p>
-        </blockquote>
-      `,
-    },
-    // Add more questions here
-  ];
+  const { data: questions, isLoading, error } = useQuery({
+    queryKey: ['questions', topicId],
+    queryFn: () => fetchQuestions(topicId!),
+    enabled: !!topicId,
+  });
+
+  if (isLoading) {
+    return <div className="text-center py-8">Loading questions...</div>;
+  }
+
+  if (error || !questions) {
+    return <div className="text-center py-8 text-red-600">Error loading questions. Please try again later.</div>;
+  }
 
   const currentQuestion = questions[currentQuestionIndex];
 
@@ -61,7 +59,7 @@ const Practice = () => {
     setShowRationale(true);
   };
 
-  const isCorrectAnswer = selectedAnswer === currentQuestion.correctAnswer;
+  const isCorrectAnswer = selectedAnswer === currentQuestion.correct_answer;
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
@@ -125,7 +123,7 @@ const Practice = () => {
                   className={`w-full p-4 text-left rounded-lg border transition-all ${
                     selectedAnswer === option.id
                       ? showAnswer
-                        ? option.id === currentQuestion.correctAnswer
+                        ? option.id === currentQuestion.correct_answer
                           ? "bg-green-50 border-green-500 text-green-700"
                           : "bg-red-50 border-red-500 text-red-700"
                         : "bg-primary/10 border-primary"

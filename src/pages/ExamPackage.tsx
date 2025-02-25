@@ -4,13 +4,24 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, ArrowLeft, BookOpen } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
-type Question = {
+type Topic = {
   id: string;
-  text: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
+  title: string;
+  description: string;
+  question_count: number;
+};
+
+const fetchTopics = async (packageId: string) => {
+  const { data, error } = await supabase
+    .from('topics')
+    .select('*')
+    .eq('package_id', packageId);
+  
+  if (error) throw error;
+  return data as Topic[];
 };
 
 const ExamPackage = () => {
@@ -19,27 +30,11 @@ const ExamPackage = () => {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [questionsCount, setQuestionsCount] = useState(10);
 
-  // This would come from your database
-  const examTopics = [
-    {
-      id: "1",
-      title: "Constitutional Principles",
-      description: "Fundamental principles of constitutional law",
-      questionCount: 150,
-    },
-    {
-      id: "2",
-      title: "Civil Procedures",
-      description: "Legal procedures in civil law cases",
-      questionCount: 200,
-    },
-    {
-      id: "3",
-      title: "Contract Law",
-      description: "Formation and execution of contracts",
-      questionCount: 180,
-    },
-  ];
+  const { data: topics, isLoading, error } = useQuery({
+    queryKey: ['topics', id],
+    queryFn: () => fetchTopics(id!),
+    enabled: !!id,
+  });
 
   const handleStartPractice = () => {
     if (selectedTopic) {
@@ -65,29 +60,35 @@ const ExamPackage = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          {examTopics.map((topic) => (
-            <Card
-              key={topic.id}
-              className={`transform transition-all duration-300 hover:scale-105 backdrop-blur-sm bg-white/90 border-0 shadow-lg cursor-pointer ${
-                selectedTopic === topic.id ? 'ring-2 ring-primary' : ''
-              }`}
-              onClick={() => setSelectedTopic(topic.id)}
-            >
-              <CardHeader>
-                <BookOpen className="w-8 h-8 text-primary mb-4" />
-                <CardTitle>{topic.title}</CardTitle>
-                <CardDescription>{topic.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center text-sm text-slate-600">
-                  <CheckCircle className="w-4 h-4 text-primary mr-2" />
-                  {topic.questionCount} questions available
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="text-center">Loading topics...</div>
+        ) : error ? (
+          <div className="text-center text-red-600">Error loading topics. Please try again later.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            {topics?.map((topic) => (
+              <Card
+                key={topic.id}
+                className={`transform transition-all duration-300 hover:scale-105 backdrop-blur-sm bg-white/90 border-0 shadow-lg cursor-pointer ${
+                  selectedTopic === topic.id ? 'ring-2 ring-primary' : ''
+                }`}
+                onClick={() => setSelectedTopic(topic.id)}
+              >
+                <CardHeader>
+                  <BookOpen className="w-8 h-8 text-primary mb-4" />
+                  <CardTitle>{topic.title}</CardTitle>
+                  <CardDescription>{topic.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center text-sm text-slate-600">
+                    <CheckCircle className="w-4 h-4 text-primary mr-2" />
+                    {topic.question_count} questions available
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         <div className="flex justify-center">
           <Button
