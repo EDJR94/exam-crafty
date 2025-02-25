@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -110,11 +111,20 @@ const Practice = () => {
       console.error('Error recording attempt:', error);
     }
 
-    // Update session progress
+    // First, get the current correct_answers count
+    const { data: currentSession } = await supabase
+      .from('practice_sessions')
+      .select('correct_answers')
+      .eq('id', sessionId)
+      .single();
+
+    // Then update with the new count
+    const newCorrectAnswers = (currentSession?.correct_answers || 0) + (isCorrect ? 1 : 0);
+    
     const { error: sessionError } = await supabase
       .from('practice_sessions')
       .update({
-        correct_answers: supabase.sql`correct_answers + ${isCorrect ? 1 : 0}`,
+        correct_answers: newCorrectAnswers,
       })
       .eq('id', sessionId);
 
