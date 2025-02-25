@@ -42,17 +42,6 @@ type QuestionAttempt = {
   timeSpent: number;
 };
 
-type TopicInfo = {
-  id: string;
-  title: string;
-  package_id: string;
-};
-
-type PackageInfo = {
-  id: string;
-  title: string;
-};
-
 const fetchQuestions = async (topicId: string) => {
   const { data, error } = await supabase
     .from('questions')
@@ -65,30 +54,6 @@ const fetchQuestions = async (topicId: string) => {
     ...q,
     options: q.options as QuestionOption[],
   })) as Question[];
-};
-
-const fetchTopicInfo = async (topicId: string) => {
-  const { data, error } = await supabase
-    .from('topics')
-    .select('id, title, package_id')
-    .eq('id', topicId)
-    .single();
-  
-  if (error) throw error;
-  
-  return data as TopicInfo;
-};
-
-const fetchPackageInfo = async (packageId: string) => {
-  const { data, error } = await supabase
-    .from('exam_packages')
-    .select('id, title')
-    .eq('id', packageId)
-    .single();
-  
-  if (error) throw error;
-  
-  return data as PackageInfo;
 };
 
 const Practice = () => {
@@ -106,39 +71,34 @@ const Practice = () => {
   const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [packageId, setPackageId] = useState<string | null>(null);
-  const [topicTitle, setTopicTitle] = useState<string | null>(null);
-  const [packageTitle, setPackageTitle] = useState<string | null>(null);
 
-  const { data: questions, isLoading: questionsLoading, error: questionsError } = useQuery({
+  const { data: questions, isLoading, error } = useQuery({
     queryKey: ['questions', topicId],
     queryFn: () => fetchQuestions(topicId!),
     enabled: !!topicId,
   });
 
-  const { data: topicInfo, isLoading: topicLoading, error: topicError } = useQuery({
-    queryKey: ['topic', topicId],
-    queryFn: () => fetchTopicInfo(topicId!),
-    enabled: !!topicId,
-  });
-
+  // Fetch the package_id for the current topic
   useEffect(() => {
-    if (topicInfo && topicInfo.package_id) {
-      setPackageId(topicInfo.package_id);
-      setTopicTitle(topicInfo.title);
-      
-      // Fetch package info
-      const getPackageInfo = async () => {
-        try {
-          const packageData = await fetchPackageInfo(topicInfo.package_id);
-          setPackageTitle(packageData.title);
-        } catch (error) {
-          console.error('Error fetching package info:', error);
-        }
-      };
-      
-      getPackageInfo();
-    }
-  }, [topicInfo]);
+    const fetchTopicDetails = async () => {
+      if (!topicId) return;
+
+      const { data, error } = await supabase
+        .from('topics')
+        .select('package_id')
+        .eq('id', topicId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching topic details:', error);
+        return;
+      }
+
+      setPackageId(data.package_id);
+    };
+
+    fetchTopicDetails();
+  }, [topicId]);
 
   useEffect(() => {
     const createSession = async () => {
@@ -284,11 +244,11 @@ const Practice = () => {
     }
   };
 
-  if (questionsLoading || topicLoading) {
+  if (isLoading) {
     return <div className="text-center py-8">Loading questions...</div>;
   }
 
-  if (questionsError || topicError || !questions) {
+  if (error || !questions) {
     return <div className="text-center py-8 text-red-600">Error loading questions. Please try again later.</div>;
   }
 
@@ -314,9 +274,6 @@ const Practice = () => {
             <CardHeader className="text-center">
               <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
               <CardTitle className="text-2xl">Session Complete!</CardTitle>
-              {packageTitle && topicTitle && (
-                <p className="text-slate-600">{packageTitle} - {topicTitle}</p>
-              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -441,14 +398,6 @@ const Practice = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-8">
       <div className="container mx-auto px-4">
-        {/* Package and Topic Title Header */}
-        {packageTitle && topicTitle && (
-          <div className="mb-4 text-center">
-            <h1 className="font-bold text-xl text-slate-800">{packageTitle}</h1>
-            <p className="text-slate-600">{topicTitle}</p>
-          </div>
-        )}
-        
         <div className="mb-3 flex items-center justify-between">
           <button
             onClick={handleBackToTopics}
