@@ -57,9 +57,8 @@ const ExamPackage = () => {
 
   const handleStartPractice = () => {
     if (selectedTopics.length > 0) {
-      // Navigate to the first selected topic
-      // If you need multiple topics, you'll need to adjust the Practice component
-      navigate(`/practice/${selectedTopics[0]}`);
+      // Join all selected topic IDs with commas and pass the count
+      navigate(`/practice/${selectedTopics.join(',')}?count=${questionsCount}`);
     }
   };
 

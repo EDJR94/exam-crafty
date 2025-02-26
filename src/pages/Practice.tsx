@@ -42,11 +42,11 @@ type QuestionAttempt = {
   timeSpent: number;
 };
 
-const fetchQuestions = async (topicId: string) => {
+const fetchQuestions = async (topicIds: string[]) => {
   const { data, error } = await supabase
     .from('questions')
     .select('*')
-    .eq('topic_id', topicId);
+    .in('topic_id', topicIds);
   
   if (error) throw error;
   
@@ -66,17 +66,23 @@ const Practice = () => {
   const [showRationaleCollapsible, setShowRationaleCollapsible] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date>(new Date());
-  const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
-  const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
-  const [showSummary, setShowSummary] = useState(false);
-  const [packageId, setPackageId] = useState<string | null>(null);
 
-  const { data: questions, isLoading, error } = useQuery({
-    queryKey: ['questions', topicId],
-    queryFn: () => fetchQuestions(topicId!),
-    enabled: !!topicId,
+  // Get all topic IDs from the URL
+  const topicIds = topicId?.split(',') || [];
+  const questionCount = parseInt(searchParams.get('count') || '10');
+
+  const { data: allQuestions, isLoading, error } = useQuery({
+    queryKey: ['questions', topicIds],
+    queryFn: () => fetchQuestions(topicIds),
+    enabled: topicIds.length > 0,
   });
+
+  // Randomly select the specified number of questions
+  const questions = React.useMemo(() => {
+    if (!allQuestions) return null;
+    const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, questionCount);
+  }, [allQuestions, questionCount]);
 
   // Fetch the package_id for the current topic
   useEffect(() => {
