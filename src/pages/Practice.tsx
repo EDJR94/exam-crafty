@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,6 +67,11 @@ const Practice = () => {
   const [showRationaleCollapsible, setShowRationaleCollapsible] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<Date>(new Date());
+  const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [packageId, setPackageId] = useState<string | null>(null);
 
   // Get all topic IDs from the URL
   const topicIds = topicId?.split(',') || [];
