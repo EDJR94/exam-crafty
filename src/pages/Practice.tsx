@@ -44,17 +44,47 @@ type QuestionAttempt = {
 };
 
 const fetchQuestions = async (topicIds: string[]) => {
+  // Fetch questions with their topic information
   const { data, error } = await supabase
     .from('questions')
-    .select('*')
+    .select(`
+      *,
+      topics:topic_id (
+        id,
+        title,
+        package_id,
+        exam_packages:package_id (
+          title
+        )
+      )
+    `)
     .in('topic_id', topicIds);
   
   if (error) throw error;
   
-  return (data as RawQuestion[]).map(q => ({
+  return (data as (RawQuestion & {
+    topics: {
+      id: string;
+      title: string;
+      package_id: string;
+      exam_packages: {
+        title: string;
+      }
+    }
+  })[]).map(q => ({
     ...q,
     options: q.options as QuestionOption[],
-  })) as Question[];
+    topic: q.topics,
+  })) as (Question & {
+    topic: {
+      id: string;
+      title: string;
+      package_id: string;
+      exam_packages: {
+        title: string;
+      }
+    }
+  })[];
 };
 
 const Practice = () => {
@@ -444,6 +474,14 @@ const Practice = () => {
 
         <Card className="mb-8">
           <CardContent className="pt-6">
+            {/* Package and Topic information */}
+            <div className="mb-4">
+              <div className="text-sm text-slate-600">
+                <div>{currentQuestion.topic.exam_packages.title}</div>
+                <div>{currentQuestion.topic.title}</div>
+              </div>
+            </div>
+
             <div className="mb-6">
               <div className="flex items-start gap-4 mb-4">
                 <div className="flex-shrink-0">
