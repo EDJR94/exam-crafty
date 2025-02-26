@@ -101,6 +101,11 @@ const Practice = () => {
   const [attempts, setAttempts] = useState<QuestionAttempt[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [packageId, setPackageId] = useState<string | null>(null);
+  // Add state to track answered questions
+  const [answeredQuestions, setAnsweredQuestions] = useState<Record<string, { 
+    selected: string, 
+    isCorrect: boolean 
+  }>>({});
 
   // Get all topic IDs from the URL
   const topicIds = topicId?.split(',') || [];
@@ -270,8 +275,9 @@ const Practice = () => {
         })
         .eq('id', sessionId);
       
-      // Show summary
+      // Explicitly set showSummary to true
       setShowSummary(true);
+      console.log('Setting showSummary to true'); // Debug log
     }
   };
 
@@ -394,10 +400,19 @@ const Practice = () => {
   };
 
   const handleSolve = async () => {
-    if (!selectedAnswer) return;
+    if (!selectedAnswer || !currentQuestion) return;
 
     const isCorrect = selectedAnswer === currentQuestion.correct_answer;
     await recordAttempt(currentQuestion.id, selectedAnswer, isCorrect);
+    
+    // Store the answer in our tracking state
+    setAnsweredQuestions(prev => ({
+      ...prev,
+      [currentQuestion.id]: {
+        selected: selectedAnswer,
+        isCorrect
+      }
+    }));
     
     setShowAnswer(true);
     setStartTime(new Date()); // Reset timer for next question
@@ -408,12 +423,19 @@ const Practice = () => {
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setSelectedAnswer(null);
-      setShowAnswer(false);
+      // Check if next question was previously answered
+      const nextQuestion = questions[currentQuestionIndex + 1];
+      const previousAnswer = answeredQuestions[nextQuestion.id];
+      if (previousAnswer) {
+        setSelectedAnswer(previousAnswer.selected);
+        setShowAnswer(true);
+      } else {
+        setSelectedAnswer(null);
+        setShowAnswer(false);
+      }
       setShowRationaleCollapsible(false);
       setStartTime(new Date());
-    } else if (showAnswer) {  // Only proceed to completion if the last question was answered
-      // Complete the session and show summary
+    } else if (showAnswer) {
       handleSessionCompletion();
     }
   };
@@ -421,8 +443,16 @@ const Practice = () => {
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
-      setSelectedAnswer(null);
-      setShowAnswer(false);
+      // Restore previous answer if it exists
+      const prevQuestion = questions[currentQuestionIndex - 1];
+      const previousAnswer = answeredQuestions[prevQuestion.id];
+      if (previousAnswer) {
+        setSelectedAnswer(previousAnswer.selected);
+        setShowAnswer(true);
+      } else {
+        setSelectedAnswer(null);
+        setShowAnswer(false);
+      }
       setShowRationaleCollapsible(false);
       setStartTime(new Date());
     }
