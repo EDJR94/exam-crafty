@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -413,7 +412,7 @@ const Practice = () => {
       setShowAnswer(false);
       setShowRationaleCollapsible(false);
       setStartTime(new Date());
-    } else {
+    } else if (showAnswer) {  // Only proceed to completion if the last question was answered
       // Complete the session and show summary
       handleSessionCompletion();
     }
@@ -590,7 +589,7 @@ const Practice = () => {
             onClick={handleNext}
             disabled={currentQuestionIndex === questions.length - 1 && !showAnswer}
           >
-            {currentQuestionIndex === questions.length - 1 ? "Finalizar" : "Próxima"}
+            {currentQuestionIndex === questions.length - 1 && showAnswer ? "Finalizar" : "Próxima"}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
