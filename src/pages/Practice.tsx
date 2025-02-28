@@ -1,8 +1,27 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ArrowRight, RotateCcw, Star, ChevronDown, ChevronUp, Trophy, Clock, CheckCircle, XCircle } from "lucide-react";
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  ChevronDown, 
+  ChevronUp, 
+  Trophy, 
+  Clock, 
+  CheckCircle, 
+  XCircle,
+  BookOpen,
+  List,
+  BarChart2,
+  Settings,
+  Share2,
+  Eye,
+  GraduationCap,
+  FileText,
+  AlertCircle
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -106,6 +125,8 @@ const Practice = () => {
     selected: string, 
     isCorrect: boolean 
   }>>({});
+  // Add state for timer (HH:MM:SS)
+  const [elapsedTime, setElapsedTime] = useState("00:00:00");
 
   // Get all topic IDs from the URL
   const topicIds = topicId?.split(',') || [];
@@ -123,6 +144,22 @@ const Practice = () => {
     const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, questionCount);
   }, [allQuestions, questionCount]);
+
+  // Session timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const diff = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000);
+      
+      const hours = Math.floor(diff / 3600).toString().padStart(2, '0');
+      const minutes = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+      const seconds = Math.floor(diff % 60).toString().padStart(2, '0');
+      
+      setElapsedTime(`${hours}:${minutes}:${seconds}`);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [sessionStartTime]);
 
   // Fetch the package_id for the current topic
   useEffect(() => {
@@ -292,11 +329,27 @@ const Practice = () => {
   };
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading questions...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Carregando questões...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !questions) {
-    return <div className="text-center py-8 text-red-600">Error loading questions. Please try again later.</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-sm">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Erro ao carregar questões</h2>
+          <p className="text-slate-600 mb-4">Não foi possível carregar as questões. Por favor, tente novamente mais tarde.</p>
+          <Button onClick={handleBackToTopics}>Voltar aos Tópicos</Button>
+        </div>
+      </div>
+    );
   }
 
   // Performance Summary component
@@ -305,70 +358,75 @@ const Practice = () => {
     if (!metrics) return <div>No data available</div>;
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-8">
-        <div className="container mx-auto px-4">
+      <div className="min-h-screen bg-slate-50 py-6">
+        <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-6 flex items-center justify-between">
             <button
               onClick={handleBackToTopics}
               className="flex items-center text-slate-600 hover:text-slate-900 transition-colors"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Topics
+              Voltar aos Tópicos
             </button>
           </div>
 
-          <Card className="mb-8">
-            <CardHeader className="text-center">
-              <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <CardTitle className="text-2xl">Session Complete!</CardTitle>
+          <Card className="mb-8 shadow-sm">
+            <CardHeader className="text-center border-b pb-6">
+              <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+              <CardTitle className="text-2xl">Sessão Concluída!</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="text-center mb-6">
-                  <p className="text-4xl font-bold text-primary">
-                    {metrics.correctCount}/{metrics.totalQuestions}
-                  </p>
-                  <p className="text-slate-600">
-                    Score: {metrics.accuracy.toFixed(1)}%
+            <CardContent className="pt-8">
+              <div className="space-y-8">
+                <div className="text-center mb-8">
+                  <div className="inline-flex items-center justify-center w-32 h-32 rounded-full bg-primary/10 mb-4">
+                    <p className="text-4xl font-bold text-primary">
+                      {metrics.correctCount}/{metrics.totalQuestions}
+                    </p>
+                  </div>
+                  <p className="text-xl text-slate-600">
+                    Pontuação: <span className="font-semibold">{metrics.accuracy.toFixed(1)}%</span>
                   </p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
-                    <p className="text-sm text-slate-600 mb-2">Accuracy</p>
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-sm font-medium text-slate-700">Precisão</p>
+                      <span className="text-sm font-medium">{metrics.accuracy.toFixed(1)}%</span>
+                    </div>
                     <Progress value={metrics.accuracy} className="h-2" />
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-slate-50 rounded-lg flex items-center">
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 flex items-center">
                       <Clock className="w-5 h-5 text-slate-600 mr-3" />
                       <div>
-                        <p className="text-sm text-slate-600">Total Time</p>
+                        <p className="text-sm text-slate-600">Tempo Total</p>
                         <p className="font-medium">{formatTime(metrics.sessionTime)}</p>
                       </div>
                     </div>
                     
-                    <div className="p-4 bg-slate-50 rounded-lg flex items-center">
+                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 flex items-center">
                       <Clock className="w-5 h-5 text-slate-600 mr-3" />
                       <div>
-                        <p className="text-sm text-slate-600">Avg. Time per Question</p>
+                        <p className="text-sm text-slate-600">Tempo Médio por Questão</p>
                         <p className="font-medium">{formatTime(Math.round(metrics.averageTimePerQuestion))}</p>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="pt-4">
-                    <h3 className="font-medium mb-3">Question Analysis</h3>
-                    <div className="space-y-2">
+                  <div className="pt-6">
+                    <h3 className="font-medium mb-4 text-slate-900">Análise de Questões</h3>
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                       {attempts.map((attempt, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                        <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow">
                           <div className="flex items-center">
                             {attempt.isCorrect ? (
                               <CheckCircle className="w-5 h-5 text-green-500 mr-3" />
                             ) : (
                               <XCircle className="w-5 h-5 text-red-500 mr-3" />
                             )}
-                            <span>Question {index + 1}</span>
+                            <span>Questão {index + 1}</span>
                           </div>
                           <span className="text-slate-600">{formatTime(attempt.timeSpent)}</span>
                         </div>
@@ -377,12 +435,12 @@ const Practice = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-center pt-4">
+                <div className="flex justify-center pt-6">
                   <Button
                     onClick={handleBackToTopics}
                     className="px-8"
                   >
-                    Back to Topics
+                    Voltar aos Tópicos
                   </Button>
                 </div>
               </div>
@@ -394,8 +452,12 @@ const Practice = () => {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
+  const resolvedCount = Object.keys(answeredQuestions).length;
+  const correctCount = Object.values(answeredQuestions).filter(a => a.isCorrect).length;
+  const errorCount = resolvedCount - correctCount;
 
   const handleAnswerSelect = (optionId: string) => {
+    if (showAnswer) return; // Prevent changing answer after submission
     setSelectedAnswer(optionId);
   };
 
@@ -459,169 +521,272 @@ const Practice = () => {
   };
 
   // Calculate current progress percentage
-  const progressPercentage = (currentQuestionIndex / questions.length) * 100;
+  const progressPercentage = ((currentQuestionIndex + 1) / questions.length) * 100;
   
   // Calculate current score if any answers have been attempted
-  const currentScore = attempts.length > 0
-    ? (attempts.filter(a => a.isCorrect).length / attempts.length) * 100
+  const currentScore = resolvedCount > 0
+    ? (correctCount / resolvedCount) * 100
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 py-8">
-      <div className="container mx-auto px-4">
-        <div className="mb-3 flex items-center justify-between">
-          <button
-            onClick={handleBackToTopics}
-            className="flex items-center text-slate-600 hover:text-slate-900 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar
-          </button>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600">
-              Questão {currentQuestionIndex + 1} de {questions.length}
-            </span>
-            <Button variant="outline" size="icon">
-              <Star className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Progress indicator */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-slate-600">Progresso</span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{correctAnswers}/{attempts.length}</span>
-              <span className="text-xs text-slate-500">
-                {attempts.length > 0 ? `(${currentScore.toFixed(0)}%)` : ''}
+    <div className="min-h-screen bg-slate-50">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-2 max-w-5xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-sm">
+              <button 
+                onClick={handleBackToTopics}
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Questões
+              </button>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+              
+              <span className="text-slate-600">Minhas pastas</span>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+              
+              {currentQuestion?.topic?.exam_packages?.title && (
+                <>
+                  <span className="text-slate-600">{currentQuestion.topic.exam_packages.title}</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </>
+              )}
+              
+              {currentQuestion?.topic?.title && (
+                <>
+                  <span className="text-slate-600">{currentQuestion.topic.title}</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </>
+              )}
+              
+              <span className="text-red-500 font-medium">
+                {currentQuestion?.topic?.title} {questions.length}
               </span>
             </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="flex items-center text-slate-700">
+                <Eye className="w-4 h-4 mr-1" />
+              </div>
+              <div className="font-mono text-slate-700">{elapsedTime}</div>
+            </div>
           </div>
-          <Progress value={progressPercentage} className="h-2" />
         </div>
-
-        <Card className="mb-8">
-          <CardContent className="pt-6">
-            {/* Package and Topic information */}
-            <div className="mb-4">
-              <div className="text-sm text-slate-600">
-                <div>{currentQuestion.topic.exam_packages.title}</div>
-                <div>{currentQuestion.topic.title}</div>
+      </div>
+      
+      {/* Secondary Navigation */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-4 py-2 max-w-5xl">
+          <div className="flex flex-wrap items-center justify-between gap-y-2">
+            <div className="flex items-center space-x-6">
+              <Button variant="ghost" className="text-blue-600">
+                <BookOpen className="w-4 h-4 mr-2" />
+                Questões
+              </Button>
+              
+              <Button variant="ghost" className="text-slate-600">
+                <List className="w-4 h-4 mr-2" />
+                Índice
+              </Button>
+              
+              <Button variant="ghost" className="text-slate-600">
+                <BarChart2 className="w-4 h-4 mr-2" />
+                Estatísticas
+              </Button>
+              
+              <Button variant="ghost" className="text-slate-600">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Gabarito
+              </Button>
+              
+              <Button variant="ghost" className="text-slate-600">
+                <Settings className="w-4 h-4 mr-2" />
+                Configurações
+              </Button>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" className="text-slate-600">
+                <FileText className="w-4 h-4 mr-2" />
+                Imprimir
+              </Button>
+              
+              <Button variant="ghost" className="text-slate-600">
+                <Share2 className="w-4 h-4 mr-2" />
+                Compartilhar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Question Counter */}
+      <div className="bg-white border-b">
+        <div className="container mx-auto px-4 py-3 max-w-5xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <h2 className="font-semibold text-slate-800">
+                  Questão {currentQuestionIndex + 1} de {questions.length}
+                </h2>
+                <span className="text-sm text-slate-500">
+                  ({resolvedCount} Resolvidas, {correctCount} Acertos e {errorCount} Erros)
+                </span>
+              </div>
+              
+              <div className="mt-1 text-sm">
+                <span className="text-slate-600">Matéria: </span>
+                <span className="text-blue-600">
+                  {currentQuestion?.topic?.title || "Não especificada"}
+                </span>
               </div>
             </div>
-
-            <div className="mb-6">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-medium">{currentQuestionIndex + 1}</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-slate-600 whitespace-pre-line">{currentQuestion.text}</p>
-                </div>
+            
+            <div className="flex items-center space-x-2">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <GraduationCap className="w-5 h-5 text-blue-600" />
               </div>
+              
+              <button className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-red-600" />
+              </button>
+              
+              <button className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                <Star className="w-5 h-5 text-slate-600" />
+              </button>
             </div>
-
-            <div className="space-y-3">
-              {currentQuestion.options.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => handleAnswerSelect(option.id)}
-                  className={`w-full p-4 text-left rounded-lg border transition-all ${
-                    selectedAnswer === option.id
-                      ? showAnswer
-                        ? option.id === currentQuestion.correct_answer
-                          ? "bg-green-50 border-green-500 text-green-700"
-                          : "bg-red-50 border-red-500 text-red-700"
-                        : "bg-primary/10 border-primary"
-                      : "border-slate-200 hover:border-primary"
-                  }`}
-                  disabled={showAnswer}
-                >
-                  <span className="font-medium">{option.id}</span> - {option.text}
-                </button>
-              ))}
-            </div>
-
-            {!showAnswer && selectedAnswer && (
-              <div className="mt-6 flex justify-center">
-                <Button onClick={handleSolve} className="w-full max-w-xs">
-                  Resolver
-                </Button>
-              </div>
-            )}
-
-            {showAnswer && (
-              <div className={`mt-6 text-center font-medium ${
-                isCorrectAnswer ? "text-green-600" : "text-red-600"
-              }`}>
-                {isCorrectAnswer
-                  ? "Resposta correta!"
-                  : "Resposta errada."}
-              </div>
-            )}
-
-            <Collapsible
-              open={showRationaleCollapsible}
-              onOpenChange={setShowRationaleCollapsible}
-              className="mt-6"
-            >
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" className="w-full">
-                  Ver Resolução
-                  {showRationaleCollapsible ? (
-                    <ChevronUp className="w-4 h-4 ml-2" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 ml-2" />
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-4">
-                <div className="p-6 bg-white rounded-lg border">
-                  <style dangerouslySetInnerHTML={{
-                    __html: `
-                      .bold { font-weight: bold; }
-                      .red-strike { color: #FF6666; text-decoration: line-through; text-decoration-color: #000; }
-                      .blue-bold { color: #0000FF; font-weight: bold; }
-                      .red-bold { color: #FF6666; font-weight: bold; }
-                      blockquote { color: #000; margin: 10px 0; font-style: italic; padding-left: 1rem; border-left: 4px solid #e5e7eb; }
-                    `
-                  }} />
-                  <div 
-                    className="prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: currentQuestion.rationale }}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-between items-center">
+          </div>
+        </div>
+      </div>
+      
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-6 max-w-5xl">
+        {/* Question ID */}
+        <div className="mb-4 text-sm text-slate-500 flex items-center">
+          <span>#192{currentQuestion.id.substring(0, 6)}</span>
+          <span className="mx-2">-</span>
+          <span>{currentQuestion.topic.exam_packages.title}</span>
+        </div>
+        
+        {/* Question Text */}
+        <div className="mb-8">
+          <div className="prose max-w-none text-slate-800">
+            <p className="whitespace-pre-line text-lg">{currentQuestion.text}</p>
+          </div>
+        </div>
+        
+        {/* Options */}
+        <div className="space-y-3 mb-8">
+          {currentQuestion.options.map((option) => {
+            const isSelected = selectedAnswer === option.id;
+            const isCorrect = option.id === currentQuestion.correct_answer;
+            
+            let optionClasses = "w-full p-4 text-left rounded-lg border transition-all flex items-start ";
+            
+            if (showAnswer) {
+              if (isCorrect) {
+                optionClasses += "bg-green-50 border-green-500 text-green-700 ";
+              } else if (isSelected && !isCorrect) {
+                optionClasses += "bg-red-50 border-red-500 text-red-700 ";
+              } else {
+                optionClasses += "border-slate-200 text-slate-700 ";
+              }
+            } else if (isSelected) {
+              optionClasses += "bg-blue-50 border-blue-500 text-blue-700 ";
+            } else {
+              optionClasses += "border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 ";
+            }
+            
+            return (
+              <button
+                key={option.id}
+                onClick={() => handleAnswerSelect(option.id)}
+                className={optionClasses}
+                disabled={showAnswer}
+              >
+                <span className="font-medium text-lg mr-2">{option.id}</span>
+                <span className="pt-0.5">{option.text}</span>
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center mb-8">
           <Button
             variant="outline"
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
+            className="px-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Anterior
           </Button>
-
-          <div className="flex gap-2">
-            <Button variant="outline" size="icon">
-              <RotateCcw className="w-4 h-4" />
+          
+          {!showAnswer && selectedAnswer && (
+            <Button onClick={handleSolve} className="px-6">
+              Resolver
             </Button>
-          </div>
-
+          )}
+          
           <Button
             onClick={handleNext}
             disabled={currentQuestionIndex === questions.length - 1 && !showAnswer}
+            className="px-4"
           >
             {currentQuestionIndex === questions.length - 1 && showAnswer ? "Finalizar" : "Próxima"}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
+        </div>
+        
+        {/* Explanation Section */}
+        {showAnswer && (
+          <Collapsible
+            open={showRationaleCollapsible}
+            onOpenChange={setShowRationaleCollapsible}
+            className="mb-8"
+          >
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full">
+                Ver Resolução
+                {showRationaleCollapsible ? (
+                  <ChevronUp className="w-4 h-4 ml-2" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4">
+              <div className="p-6 bg-white rounded-lg border">
+                <style dangerouslySetInnerHTML={{
+                  __html: `
+                    .bold { font-weight: bold; }
+                    .red-strike { color: #FF6666; text-decoration: line-through; text-decoration-color: #000; }
+                    .blue-bold { color: #0000FF; font-weight: bold; }
+                    .red-bold { color: #FF6666; font-weight: bold; }
+                    blockquote { color: #000; margin: 10px 0; font-style: italic; padding-left: 1rem; border-left: 4px solid #e5e7eb; }
+                  `
+                }} />
+                <div 
+                  className="prose max-w-none"
+                  dangerouslySetInnerHTML={{ __html: currentQuestion.rationale }}
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+        
+        {/* Progress Bar */}
+        <div className="mt-8">
+          <div className="flex justify-between items-center mb-2 text-sm">
+            <span className="text-slate-500">Progresso</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{currentQuestionIndex + 1}/{questions.length}</span>
+              <span className="text-slate-500">({progressPercentage.toFixed(0)}%)</span>
+            </div>
+          </div>
+          <Progress value={progressPercentage} className="h-1.5" />
         </div>
       </div>
     </div>
