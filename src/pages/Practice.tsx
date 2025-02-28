@@ -129,6 +129,8 @@ const Practice = () => {
   }>>({});
   // Add state for timer (HH:MM:SS)
   const [elapsedTime, setElapsedTime] = useState("00:00:00");
+  // Add state to track if session has been created
+  const [sessionCreated, setSessionCreated] = useState(false);
 
   // Get all topic IDs from the URL
   const topicIds = topicId?.split(',') || [];
@@ -189,9 +191,17 @@ const Practice = () => {
     fetchTopicDetails();
   }, [topicId, topicIds]);
 
+  // Create session once questions are loaded
   useEffect(() => {
     const createSession = async () => {
-      if (!topicId || sessionId) return;
+      // Only create session if:
+      // 1. We have topicId
+      // 2. We have questions
+      // 3. Session hasn't been created yet
+      // 4. Session ID hasn't been set
+      if (!topicId || !questions || sessionCreated || sessionId) return;
+
+      console.log("Creating new session");
 
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -201,34 +211,51 @@ const Practice = () => {
         return;
       }
 
-      const { data: session, error } = await supabase
-        .from('practice_sessions')
-        .insert({
-          topic_id: topicIds[0], // Use first topic as reference
-          total_questions: questions?.length || 0,
-          user_id: user?.id, // Associate session with current user
-        })
-        .select()
-        .single();
+      try {
+        const { data: session, error } = await supabase
+          .from('practice_sessions')
+          .insert({
+            topic_id: topicIds[0], // Use first topic as reference
+            total_questions: questions.length,
+            user_id: user?.id, // Associate session with current user
+          })
+          .select()
+          .single();
 
-      if (error) {
-        console.error('Error creating session:', error);
-        return;
+        if (error) {
+          console.error('Error creating session:', error);
+          return;
+        }
+
+        console.log("Session created:", session.id);
+        setSessionId(session.id);
+        setSessionCreated(true);
+      } catch (e) {
+        console.error("Failed to create session:", e);
       }
-
-      setSessionId(session.id);
     };
 
-    if (questions) {
+    if (questions && !sessionCreated) {
       createSession();
       setSessionStartTime(new Date());
     }
-  }, [topicId, questions, sessionId, topicIds]);
+  }, [topicId, questions, sessionId, topicIds, sessionCreated]);
 
   const recordAttempt = async (questionId: string, selectedAnswer: string, isCorrect: boolean) => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.error("Cannot record attempt: No session ID");
+      return;
+    }
 
     const timeSpent = Math.round((new Date().getTime() - startTime.getTime()) / 1000);
+
+    console.log("Recording attempt:", {
+      sessionId,
+      questionId,
+      selectedAnswer,
+      isCorrect,
+      timeSpent
+    });
 
     // Save attempt in local state for summary
     setAttempts(prev => [...prev, {
@@ -243,39 +270,44 @@ const Practice = () => {
       setCorrectAnswers(prev => prev + 1);
     }
 
-    const { error } = await supabase
-      .from('question_attempts')
-      .insert({
-        session_id: sessionId,
-        question_id: questionId,
-        selected_answer: selectedAnswer,
-        is_correct: isCorrect,
-        time_spent: timeSpent,
-      });
+    try {
+      const { error } = await supabase
+        .from('question_attempts')
+        .insert({
+          session_id: sessionId,
+          question_id: questionId,
+          selected_answer: selectedAnswer,
+          is_correct: isCorrect,
+          time_spent: timeSpent,
+        });
 
-    if (error) {
-      console.error('Error recording attempt:', error);
-    }
+      if (error) {
+        console.error('Error recording attempt:', error);
+        return;
+      }
 
-    // First, get the current correct_answers count
-    const { data: currentSession } = await supabase
-      .from('practice_sessions')
-      .select('correct_answers')
-      .eq('id', sessionId)
-      .single();
+      // First, get the current correct_answers count
+      const { data: currentSession } = await supabase
+        .from('practice_sessions')
+        .select('correct_answers')
+        .eq('id', sessionId)
+        .single();
 
-    // Then update with the new count
-    const newCorrectAnswers = (currentSession?.correct_answers || 0) + (isCorrect ? 1 : 0);
-    
-    const { error: sessionError } = await supabase
-      .from('practice_sessions')
-      .update({
-        correct_answers: newCorrectAnswers,
-      })
-      .eq('id', sessionId);
+      // Then update with the new count
+      const newCorrectAnswers = (currentSession?.correct_answers || 0) + (isCorrect ? 1 : 0);
+      
+      const { error: sessionError } = await supabase
+        .from('practice_sessions')
+        .update({
+          correct_answers: newCorrectAnswers,
+        })
+        .eq('id', sessionId);
 
-    if (sessionError) {
-      console.error('Error updating session:', sessionError);
+      if (sessionError) {
+        console.error('Error updating session:', sessionError);
+      }
+    } catch (e) {
+      console.error("Failed to record attempt:", e);
     }
   };
 
@@ -321,6 +353,8 @@ const Practice = () => {
       // Explicitly set showSummary to true
       setShowSummary(true);
       console.log('Setting showSummary to true'); // Debug log
+    } else {
+      console.error("Cannot complete session: No session ID");
     }
   };
 
@@ -460,38 +494,62 @@ const Practice = () => {
   };
 
   const handleSolve = async () => {
-    if (!selectedAnswer || !currentQuestion) return;
+    if (!selectedAnswer || !currentQuestion) {
+      console.error("Cannot solve: No selected answer or current question");
+      return;
+    }
+
+    if (!sessionId) {
+      console.log("No session ID available, cannot solve question");
+      toast({
+        title: "Erro",
+        description: "Não foi possível submeter sua resposta. Tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("Solving question", currentQuestionIndex, "with answer", selectedAnswer);
 
     const isCorrect = selectedAnswer === currentQuestion.correct_answer;
-    await recordAttempt(currentQuestion.id, selectedAnswer, isCorrect);
-    
-    // Store the answer in our tracking state
-    setAnsweredQuestions(prev => ({
-      ...prev,
-      [currentQuestion.id]: {
-        selected: selectedAnswer,
-        isCorrect
+    try {
+      await recordAttempt(currentQuestion.id, selectedAnswer, isCorrect);
+      
+      // Store the answer in our tracking state
+      setAnsweredQuestions(prev => ({
+        ...prev,
+        [currentQuestion.id]: {
+          selected: selectedAnswer,
+          isCorrect
+        }
+      }));
+      
+      setShowAnswer(true);
+      
+      // Show feedback toast based on correctness
+      if (isCorrect) {
+        toast({
+          title: "Resposta correta!",
+          description: "Muito bem! Você acertou a questão.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Resposta incorreta",
+          description: `A alternativa correta era ${currentQuestion.correct_answer}.`,
+          variant: "destructive",
+        });
       }
-    }));
-    
-    setShowAnswer(true);
-    
-    // Show feedback toast based on correctness
-    if (isCorrect) {
+      
+      setStartTime(new Date()); // Reset timer for next question
+    } catch (e) {
+      console.error("Error solving question:", e);
       toast({
-        title: "Resposta correta!",
-        description: "Muito bem! Você acertou a questão.",
-        variant: "default",
-      });
-    } else {
-      toast({
-        title: "Resposta incorreta",
-        description: `A alternativa correta era ${currentQuestion.correct_answer}.`,
+        title: "Erro",
+        description: "Não foi possível submeter sua resposta. Tente novamente.",
         variant: "destructive",
       });
     }
-    
-    setStartTime(new Date()); // Reset timer for next question
   };
 
   const handleNext = () => {
