@@ -21,8 +21,8 @@ import {
   GraduationCap,
   FileText,
   AlertCircle,
-  ChevronRight, // Added missing import
-  Star // Added missing import
+  ChevronRight,
+  Star
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -31,7 +31,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Progress } from "@/components/ui/progress";
+import { toast } from "@/hooks/use-toast";
 
 type QuestionOption = {
   id: string;
@@ -395,14 +395,6 @@ const Practice = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-sm font-medium text-slate-700">Precisão</p>
-                      <span className="text-sm font-medium">{metrics.accuracy.toFixed(1)}%</span>
-                    </div>
-                    <Progress value={metrics.accuracy} className="h-2" />
-                  </div>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 flex items-center">
                       <Clock className="w-5 h-5 text-slate-600 mr-3" />
@@ -483,10 +475,24 @@ const Practice = () => {
     }));
     
     setShowAnswer(true);
+    
+    // Show feedback toast based on correctness
+    if (isCorrect) {
+      toast({
+        title: "Resposta correta!",
+        description: "Muito bem! Você acertou a questão.",
+        variant: "default",
+      });
+    } else {
+      toast({
+        title: "Resposta incorreta",
+        description: `A alternativa correta era ${currentQuestion.correct_answer}.`,
+        variant: "destructive",
+      });
+    }
+    
     setStartTime(new Date()); // Reset timer for next question
   };
-
-  const isCorrectAnswer = selectedAnswer === currentQuestion.correct_answer;
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
@@ -528,11 +534,6 @@ const Practice = () => {
 
   // Calculate current progress percentage
   const progressPercentage = ((currentQuestionIndex + 1) / questions.length) * 100;
-  
-  // Calculate current score if any answers have been attempted
-  const currentScore = resolvedCount > 0
-    ? (correctCount / resolvedCount) * 100
-    : 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -783,17 +784,26 @@ const Practice = () => {
           </Collapsible>
         )}
         
-        {/* Progress Bar */}
-        <div className="mt-8">
-          <div className="flex justify-between items-center mb-2 text-sm">
-            <span className="text-slate-500">Progresso</span>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{currentQuestionIndex + 1}/{questions.length}</span>
-              <span className="text-slate-500">({progressPercentage.toFixed(0)}%)</span>
+        {/* Question Status */}
+        {showAnswer && (
+          <div className="mt-6 mb-6">
+            <div className="p-4 rounded-lg flex items-center gap-3 justify-center">
+              {selectedAnswer === currentQuestion.correct_answer ? (
+                <div className="bg-green-50 border border-green-200 p-4 rounded-lg flex items-center">
+                  <CheckCircle className="w-6 h-6 text-green-600 mr-3" />
+                  <span className="text-green-800 font-medium">Resposta correta!</span>
+                </div>
+              ) : (
+                <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-center">
+                  <XCircle className="w-6 h-6 text-red-600 mr-3" />
+                  <span className="text-red-800 font-medium">
+                    Resposta incorreta. A alternativa correta é {currentQuestion.correct_answer}.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-          <Progress value={progressPercentage} className="h-1.5" />
-        </div>
+        )}
       </div>
     </div>
   );
