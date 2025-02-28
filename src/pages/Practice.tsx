@@ -20,7 +20,9 @@ import {
   Eye,
   GraduationCap,
   FileText,
-  AlertCircle
+  AlertCircle,
+  ChevronRight, // Added missing import
+  Star // Added missing import
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -166,10 +168,14 @@ const Practice = () => {
     const fetchTopicDetails = async () => {
       if (!topicId) return;
 
+      // Fix: Instead of passing multiple IDs in one request, let's take the first topic ID
+      // to get the package_id as all topics should have the same package_id
+      const firstTopicId = topicIds[0];
+      
       const { data, error } = await supabase
         .from('topics')
         .select('package_id')
-        .eq('id', topicId)
+        .eq('id', firstTopicId)
         .single();
 
       if (error) {
@@ -181,7 +187,7 @@ const Practice = () => {
     };
 
     fetchTopicDetails();
-  }, [topicId]);
+  }, [topicId, topicIds]);
 
   useEffect(() => {
     const createSession = async () => {
@@ -198,7 +204,7 @@ const Practice = () => {
       const { data: session, error } = await supabase
         .from('practice_sessions')
         .insert({
-          topic_id: topicId,
+          topic_id: topicIds[0], // Use first topic as reference
           total_questions: questions?.length || 0,
           user_id: user?.id, // Associate session with current user
         })
@@ -217,7 +223,7 @@ const Practice = () => {
       createSession();
       setSessionStartTime(new Date());
     }
-  }, [topicId, questions, sessionId]);
+  }, [topicId, questions, sessionId, topicIds]);
 
   const recordAttempt = async (questionId: string, selectedAnswer: string, isCorrect: boolean) => {
     if (!sessionId) return;
